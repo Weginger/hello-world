@@ -1,0 +1,108 @@
+# Import the modules
+import numpy as np
+import matplotlib.pyplot as plt
+import pdb
+
+import sys
+import os
+sys.path.append("/home/weginger/GEM/oq-hazardlib/")
+
+import pickle
+
+#import oq_wgi
+#reload( oq_wgi )
+#from openquake.hazardlib.gsim import get_available_gsims
+
+def ReadFile():	#V3
+# Read ZAMG Events
+    class clZEv:
+
+        stan = tstr = restype = pga3c = pgv3c = pgd3c = []  
+        la = lo = rg = z0 = ml = mw = delta = []
+    ZEv = clZEv()
+    
+    for line in open('//home/weginger/prep_GMPE_Data/PG_dva/PG_v3_all2.dat').readlines():
+        curEv = line.split()
+
+        #ChanList = ['HN, HL']	#HN, HL
+        #if not [y for y in ChanList if curEv[2] in y]: continue
+        
+        #stan, tstr, rsptype, 0, dis3c, acc3c, vel3c, la, lo, r, z0, ml
+
+        ZEv.stan  = np.append( ZEv.stan,   curEv[0] )
+        ZEv.tstr  = np.append( ZEv.tstr,   curEv[1] )
+        ZEv.restype=np.append( ZEv.restype,curEv[2] )
+        #ZEv.AmpF.append    ( float(curEv[3]) )
+        ZEv.pgd3c = np.append( ZEv.pgd3c,  float(curEv[4])*1e-9 )
+        ZEv.pga3c = np.append( ZEv.pga3c,  float(curEv[5])*1e-9/9.81 )
+        ZEv.pgv3c = np.append( ZEv.pgv3c,  float(curEv[6])*1e-9 )
+        ZEv.la    = np.append( ZEv.la,     float(curEv[7]) )
+        ZEv.lo    = np.append( ZEv.lo,     float(curEv[8]) )
+        ZEv.rg    = np.append( ZEv.rg,     float(curEv[9]) )
+        ZEv.z0    = np.append( ZEv.z0,     float(curEv[10]))
+        ZEv.delta = np.append( ZEv.delta, np.sqrt( float(curEv[10])**2 + (float(curEv[9])*111.19)**2 ) )
+        ZEv.ml    = np.append( ZEv.ml,     float(curEv[11]) )  
+        ZEv.mw    = np.append( ZEv.mw,     float(curEv[11])*0.812 +1.145 ) 
+    
+    return ZEv
+
+ZEv = ReadFile() 
+pdb.set_trace()        
+               
+# Set up the configuration
+GMPES = get_available_gsims()
+
+gmpe_list = ["AkkarBommer2010", 
+             "AkkarCagnan2010", 
+             "AkkarEtAlRjb2014", 
+             "BooreAtkinson2008", 
+             "ChiouYoungs2008",
+             "ZhaoEtAl2006Asc",
+             "CauzziEtAl2014",
+             "CauzziFaccioli2008SWISS08",
+             "ChiouYoungs2008SWISS06"]		
+
+imts = ["PGA", "PGV", "SA(0.2)", "SA(1.0)", "SA(2.0)"]
+
+params = {"ztor": 5.0,   # Top of rupture depth
+         "hypo_depth": 10.0,   # Hypocentral depth
+         "vs30": 800.0, # Vs30 for all sites
+         "vs30measured": True, # Vs30 value is measured
+         "z1pt0": 100.0, # Depth (m) to the 1.0 km/s Vs interface 
+         "dip": 90.0,  # Vertical Fault
+         "rake": 0.0 # Strike-slip fault
+         }
+
+#calc GMPE
+magnitudes = np.arange(3.5, 6.1, 0.1)
+distances = {"repi": np.array([50.0,100.0,150.0])}
+distances["rhypo"] = np.sqrt(distances["repi"] ** 2.0 + params["hypo_depth"] ** 2)
+distances["rjb"] = distances["repi"]
+distances["rrup"] = np.sqrt(distances["rjb"] ** 2.0 + params["ztor"] ** 2)
+distances["rx"] = distances["rjb"]
+
+outp = oq_wgi.getgmpe(magnitudes, distances, gmpe_list, imts, params)
+
+#write File
+file = open('GMPE_oq_mag.txt', 'w')
+pickle.dump([gmpe_list, imts, params, magnitudes, distances, outp.gmvs], file)
+file.close()
+
+
+
+#calc GMPE
+magnitudes = np.array([4,5,6])
+distances = {"repi": np.arange(0.0, 251.0, 2.0)}
+distances["rhypo"] = np.sqrt(distances["repi"] ** 2.0 + params["hypo_depth"] ** 2)
+distances["rjb"] = distances["repi"]
+distances["rrup"] = np.sqrt(distances["rjb"] ** 2.0 + params["ztor"] ** 2)
+distances["rx"] = distances["rjb"]
+
+outp = oq_wgi.getgmpe(magnitudes, distances, gmpe_list, imts, params)
+
+#write File
+file = open('GMPE_oq_dist.txt', 'w')
+pickle.dump([gmpe_list, imts, params, magnitudes, distances, outp.gmvs], file)
+file.close()
+
+
